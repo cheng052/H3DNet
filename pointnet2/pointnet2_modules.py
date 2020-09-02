@@ -464,8 +464,8 @@ class PointnetSAModuleMatch(nn.Module):
             (B, npoint) tensor of the inds
         """
 
-        new_xyz = xyz[:,:self.npoint,:].contiguous()
-        target_xyz = xyz[:,self.npoint:,:].contiguous()
+        new_xyz = xyz[:,:self.npoint,:].contiguous()  # (B, 6*N, 3) or (B, 12*N, 3)
+        target_xyz = xyz[:,self.npoint:,:].contiguous()  # (B, 2*1024, 3) or (B, 1024, 3)
         
         if not self.ret_unique_cnt:
             grouped_features, grouped_xyz = self.grouper(

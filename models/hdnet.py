@@ -168,8 +168,8 @@ class HDNet(nn.Module):
         voted_z, voted_z_feature, z_offset, z_residual = self.vgen_z(xyz, features_hd_discriptor)
         voted_z_feature_norm = torch.norm(voted_z_feature, p=2, dim=1)
         voted_z_feature = voted_z_feature.div(voted_z_feature_norm.unsqueeze(1))
-        end_points['vote_z'] = voted_z
-        end_points['vote_z_feature'] = voted_z_feature
+        end_points['vote_z'] = voted_z  # (B, 1024, 3)
+        end_points['vote_z_feature'] = voted_z_feature  # (B, 256, 1024)
 
         voted_xy, voted_xy_feature, xy_offset, xy_residual = self.vgen_xy(xyz, features_hd_discriptor)
         voted_xy_feature_norm = torch.norm(voted_xy_feature, p=2, dim=1)
@@ -184,7 +184,7 @@ class HDNet(nn.Module):
         end_points['vote_line'] = voted_line
         end_points['vote_line_feature'] = voted_line_feature
 
-        # (B, N, 3), (B, 128, N)
+        # (B, 1024, 3), (B, 128, 1024)
         center_z, feature_z, end_points = self.pnet_z(voted_z, voted_z_feature, end_points, mode='_z')
         center_xy, feature_xy, end_points = self.pnet_xy(voted_xy, voted_xy_feature, end_points, mode='_xy')
         center_line, feature_line, end_points = self.pnet_line(voted_line, voted_line_feature, end_points, mode='_line')

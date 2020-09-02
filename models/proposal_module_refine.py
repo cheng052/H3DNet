@@ -213,7 +213,7 @@ class ProposalModuleRefine(nn.Module):
         # --------- PROPOSAL GENERATION ---------
         net = F.relu(self.bn1(self.conv1(features))) 
         net = F.relu(self.bn2(self.conv2(net)))
-        original_feature = features.contiguous()
+        original_feature = features.contiguous()  # (B, 128, N)
         net = self.conv3(net) # (batch_size, 2+3+num_heading_bin*2+num_size_cluster*4, num_proposal)
 
         final_feature = net
@@ -224,29 +224,29 @@ class ProposalModuleRefine(nn.Module):
         ind_normal_z = self.softmax_normal(end_points["pred_flag_z"])  # (B, 2, 1024)
         end_points["pred_z_ind"] = (ind_normal_z[:,1,:] > SURFACE_THRESH).detach().float()  # (B, 1024)
         z_sel = (ind_normal_z[:,1,:] <= SURFACE_THRESH).detach().float()  # (B, 1024)
-        offset = torch.ones_like(center_z) * UPPER_THRESH  # (B, N, 3)
-        z_center = center_z + offset*z_sel.unsqueeze(-1)
-        z_sem = end_points["sem_cls_scores_z"]
+        offset = torch.ones_like(center_z) * UPPER_THRESH  # (B, 1024, 3)
+        z_center = center_z + offset*z_sel.unsqueeze(-1)  # (B, 1024, 3)
+        z_sem = end_points["sem_cls_scores_z"]  # (B, 1024, C) C: number of semantic class
 
         ind_normal_xy = self.softmax_normal(end_points["pred_flag_xy"])
         end_points["pred_xy_ind"] = (ind_normal_xy[:,1,:] > SURFACE_THRESH).detach().float()
         xy_sel = (ind_normal_xy[:,1,:] <= SURFACE_THRESH).detach().float()
         offset = torch.ones_like(center_xy) * UPPER_THRESH
-        xy_center = center_xy + offset*xy_sel.unsqueeze(-1)
-        xy_sem = end_points["sem_cls_scores_xy"]
+        xy_center = center_xy + offset*xy_sel.unsqueeze(-1)  # (B, 1024, 3)
+        xy_sem = end_points["sem_cls_scores_xy"]  # (B, 1024, C)
         
-        surface_center_pred = torch.cat((z_center, xy_center), dim=1)
-        end_points['surface_center_pred'] = surface_center_pred
-        end_points['surface_sem_pred'] = torch.cat((z_sem, xy_sem), dim=1)
-        surface_center_feature_pred = torch.cat((z_feature, xy_feature), dim=2)
-        surface_center_feature_pred = torch.cat((torch.zeros((batch_size, 6, surface_center_feature_pred.shape[2])).cuda(), surface_center_feature_pred), dim=1)
+        surface_center_pred = torch.cat((z_center, xy_center), dim=1)  # (B, 2*1024, 3)
+        end_points['surface_center_pred'] = surface_center_pred  # (B, 2*1024, 3)
+        end_points['surface_sem_pred'] = torch.cat((z_sem, xy_sem), dim=1)  # (B, 2*1024, C)
+        surface_center_feature_pred = torch.cat((z_feature, xy_feature), dim=2)  # (B, 128, 2*1024)
+        surface_center_feature_pred = torch.cat((torch.zeros((batch_size, 6, surface_center_feature_pred.shape[2])).cuda(), surface_center_feature_pred), dim=1)  # (B, 6+128, 2*1024)
 
         ### Extract line points and features here
-        ind_normal_line = self.softmax_normal(end_points["pred_flag_line"])
+        ind_normal_line = self.softmax_normal(end_points["pred_flag_line"])  # (B, 2, 1024)
         end_points["pred_line_ind"] = (ind_normal_line[:,1,:] > LINE_THRESH).detach().float()
-        line_sel = (ind_normal_line[:,1,:] <= SURFACE_THRESH).detach().float()
-        offset = torch.ones_like(center_line) * UPPER_THRESH
-        line_center = center_line + offset*line_sel.unsqueeze(-1)
+        line_sel = (ind_normal_line[:,1,:] <= SURFACE_THRESH).detach().float()  # (B, 1024)
+        offset = torch.ones_like(center_line) * UPPER_THRESH  # (B, 1024, 3)
+        line_center = center_line + offset*line_sel.unsqueeze(-1)  # (B, 1024, 3)
         end_points['line_center_pred'] = line_center
         end_points['line_sem_pred'] = end_points["sem_cls_scores_line"]
 
@@ -277,7 +277,7 @@ class ProposalModuleRefine(nn.Module):
         # (B, 6*N, 3), (B, 12*N, 3)
         obj_surface_center, obj_line_center = get_surface_line_points_batch_pytorch(obj_size, pred_heading, obj_center)
         obj_surface_feature = original_feature.repeat(1,1,6)  # (B, 128, 6*N)
-        end_points['surface_center_object'] = obj_surface_center
+        end_points['surface_center_object'] = obj_surface_center  # (B, 6*N, 3)
         # Add an indicator for different surfaces
         obj_upper_indicator = torch.zeros((batch_size, object_proposal, 6)).cuda()  # (B, N, 6)
         obj_upper_indicator[:,:,0] = 1
@@ -331,11 +331,16 @@ class ProposalModuleRefine(nn.Module):
         # (B, 12+128, 12*N)
         obj_line_feature = torch.cat((obj_line_indicator, obj_line_feature), dim=1)
 
-        # input: (B, 6*N+2*N, 3), (B, 6+128, ?)
+        # input: (B, 6*N+2*1024, 3), (B, 6+128, 6*N+2*1024)
+        # output: (B, 6*N, 3), (B, 32, 6*N)
         surface_xyz, surface_features, _ = self.match_surface_center(torch.cat((obj_surface_center, surface_center_pred), dim=1), torch.cat((obj_surface_feature, surface_center_feature_pred), dim=2))
+        # (B, 12+128, 1024)
         line_feature = torch.cat((torch.zeros((batch_size, 12, line_feature.shape[2])).cuda(), line_feature), dim=1)
+        # input: (B, 12*N+1024, 3), (B, 12+128, 12*N+1024)
+        # output: (B, 12*N, 3), (B, 32, 12*N)
         line_xyz, line_features, _ = self.match_line_center(torch.cat((obj_line_center, line_center), dim=1), torch.cat((obj_line_feature, line_feature), dim=2))
 
+        # (B, 32, 6*N+12*N)
         combine_features = torch.cat((surface_features.contiguous(), line_features.contiguous()), dim=2)
 
         match_features = F.relu(self.bn_match1(self.conv_match1(combine_features)))
@@ -351,18 +356,23 @@ class ProposalModuleRefine(nn.Module):
 
         line_features = F.relu(self.bn_line1(self.conv_line1(line_features)))
         line_features = F.relu(self.bn_line2(self.conv_line2(line_features)))
-        
+
+        # (B, 32, 6, N)
         surface_features = surface_features.view(batch_size, -1, 6, object_proposal).contiguous()
+        # (B, 32, 12, N)
         line_features = line_features.view(batch_size, -1, 12, object_proposal).contiguous()
 
         # Combine all surface and line features
+        # (B, 32*6, N)
         surface_pool_feature = surface_features.view(batch_size, -1, object_proposal).contiguous()
+        # (B, 32*12, N)
         line_pool_feature = line_features.view(batch_size, -1, object_proposal).contiguous()
-        
+
+        # (B, 32*6+32*12, N) or (B, 192*3, N)
         combine_feature = torch.cat((surface_pool_feature, line_pool_feature), dim=1)
 
-        net = F.relu(self.bn_refine1(self.conv_refine1(combine_feature)))
-        net += original_feature
+        net = F.relu(self.bn_refine1(self.conv_refine1(combine_feature)))  # (B, 128, N)
+        net += original_feature  # (B, 128, N)
         net = F.relu(self.bn_refine2(self.conv_refine2(net)))
         net = F.relu(self.bn_refine3(self.conv_refine3(net)))
         net = self.conv_refine4(net) # (batch_size, 2+3+num_heading_bin*2+num_size_cluster*4, num_proposal)
