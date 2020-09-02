@@ -330,6 +330,7 @@ def get_surface_line_points_batch_pytorch(obj_size, heading_angle, center):
     
     obj_left_surface_center = offset_x * obj_size
     obj_right_surface_center = -offset_x * obj_size
+    # (B, 6*N, 3)
     surface_3d = torch.cat((obj_upper_surface_center, obj_lower_surface_center, obj_front_surface_center, obj_back_surface_center, obj_left_surface_center, obj_right_surface_center), dim=1)
 
     ## Get the object line center here
@@ -347,6 +348,7 @@ def get_surface_line_points_batch_pytorch(obj_size, heading_angle, center):
     obj_line_center_9 = offset_x * obj_size - offset_y * obj_size
     obj_line_center_10 = - offset_x * obj_size + offset_y * obj_size
     obj_line_center_11 = - offset_x * obj_size - offset_y * obj_size
+    # (B, 12*N, 3)
     line_3d = torch.cat((obj_line_center_0, obj_line_center_1, obj_line_center_2, obj_line_center_3, obj_line_center_4, obj_line_center_5, obj_line_center_6, obj_line_center_7, obj_line_center_8, obj_line_center_9, obj_line_center_10, obj_line_center_11), dim=1)
     
     surface_rot = R.repeat(1,6,1,1)

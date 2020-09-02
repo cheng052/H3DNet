@@ -221,10 +221,10 @@ class ProposalModuleRefine(nn.Module):
     
         ### Create surface center here
         ### Extract surface points and features here
-        ind_normal_z = self.softmax_normal(end_points["pred_flag_z"])
-        end_points["pred_z_ind"] = (ind_normal_z[:,1,:] > SURFACE_THRESH).detach().float()
-        z_sel = (ind_normal_z[:,1,:] <= SURFACE_THRESH).detach().float()
-        offset = torch.ones_like(center_z) * UPPER_THRESH
+        ind_normal_z = self.softmax_normal(end_points["pred_flag_z"])  # (B, 2, 1024)
+        end_points["pred_z_ind"] = (ind_normal_z[:,1,:] > SURFACE_THRESH).detach().float()  # (B, 1024)
+        z_sel = (ind_normal_z[:,1,:] <= SURFACE_THRESH).detach().float()  # (B, 1024)
+        offset = torch.ones_like(center_z) * UPPER_THRESH  # (B, N, 3)
         z_center = center_z + offset*z_sel.unsqueeze(-1)
         z_sem = end_points["sem_cls_scores_z"]
 
@@ -272,12 +272,14 @@ class ProposalModuleRefine(nn.Module):
         else:
             config = SunrgbdDatasetConfig()
             pred_heading = pred_heading_class.float()*(2*np.pi/float(config.num_heading_bin)) + pred_heading_residual 
-            
+
+        # Projection here: project object center to face centers(1 -> 6) and edge centers(1 -> 12)
+        # (B, 6*N, 3), (B, 12*N, 3)
         obj_surface_center, obj_line_center = get_surface_line_points_batch_pytorch(obj_size, pred_heading, obj_center)
-        obj_surface_feature = original_feature.repeat(1,1,6)
+        obj_surface_feature = original_feature.repeat(1,1,6)  # (B, 128, 6*N)
         end_points['surface_center_object'] = obj_surface_center
         # Add an indicator for different surfaces
-        obj_upper_indicator = torch.zeros((batch_size, object_proposal, 6)).cuda()
+        obj_upper_indicator = torch.zeros((batch_size, object_proposal, 6)).cuda()  # (B, N, 6)
         obj_upper_indicator[:,:,0] = 1
         obj_lower_indicator = torch.zeros((batch_size, object_proposal, 6)).cuda()
         obj_lower_indicator[:,:,1] = 1
@@ -289,13 +291,15 @@ class ProposalModuleRefine(nn.Module):
         obj_left_indicator[:,:,4] = 1
         obj_right_indicator = torch.zeros((batch_size, object_proposal, 6)).cuda()
         obj_right_indicator[:,:,5] = 1
+        # (B, 6, 6*N)
         obj_surface_indicator = torch.cat((obj_upper_indicator, obj_lower_indicator, obj_front_indicator, obj_back_indicator, obj_left_indicator, obj_right_indicator), dim=1).transpose(2,1).contiguous()
+        # (B, 6+128, 6*N)
         obj_surface_feature = torch.cat((obj_surface_indicator, obj_surface_feature), dim=1)
         
-        obj_line_feature = original_feature.repeat(1,1,12)
+        obj_line_feature = original_feature.repeat(1,1,12)  # (B, 128, 12*N)
         end_points['line_center_object'] = obj_line_center
         # Add an indicator for different lines
-        obj_line_indicator0 = torch.zeros((batch_size, 12, object_proposal)).cuda()
+        obj_line_indicator0 = torch.zeros((batch_size, 12, object_proposal)).cuda()  # (B, 12, N)
         obj_line_indicator0[:,0,:] = 1
         obj_line_indicator1 = torch.zeros((batch_size, 12, object_proposal)).cuda()
         obj_line_indicator1[:,1,:] = 1
@@ -322,9 +326,12 @@ class ProposalModuleRefine(nn.Module):
         obj_line_indicator11 = torch.zeros((batch_size, 12, object_proposal)).cuda()
         obj_line_indicator11[:,11,:] = 1
 
+        # (B, 12, 12*N)
         obj_line_indicator = torch.cat((obj_line_indicator0, obj_line_indicator1, obj_line_indicator2, obj_line_indicator3, obj_line_indicator4, obj_line_indicator5, obj_line_indicator6, obj_line_indicator7, obj_line_indicator8, obj_line_indicator9, obj_line_indicator10, obj_line_indicator11), dim=2)
+        # (B, 12+128, 12*N)
         obj_line_feature = torch.cat((obj_line_indicator, obj_line_feature), dim=1)
-        
+
+        # input: (B, 6*N+2*N, 3), (B, 6+128, ?)
         surface_xyz, surface_features, _ = self.match_surface_center(torch.cat((obj_surface_center, surface_center_pred), dim=1), torch.cat((obj_surface_feature, surface_center_feature_pred), dim=2))
         line_feature = torch.cat((torch.zeros((batch_size, 12, line_feature.shape[2])).cuda(), line_feature), dim=1)
         line_xyz, line_features, _ = self.match_line_center(torch.cat((obj_line_center, line_center), dim=1), torch.cat((obj_line_feature, line_feature), dim=2))

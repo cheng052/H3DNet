@@ -268,7 +268,7 @@ class ScannetDetectionDataset(Dataset):
                 ### Get the boundary points here
                 alldist = np.abs(np.sum(x*plane_lower[:3], 1) + plane_lower[-1])
                 mind = np.min(alldist)
-                sel = np.abs(alldist - mind) < DIST_THRESH
+                sel = np.abs(alldist - mind) < DIST_THRESH  # 到*下底面*距离在DIST_THRESH以内的点
                 
                 ## Get lower four lines
                 line_sel1, line_sel2, line_sel3, line_sel4 = get_linesel(x[sel], xmin, xmax, ymin, ymax)
@@ -307,7 +307,7 @@ class ScannetDetectionDataset(Dataset):
                 ### Get the boundary points here
                 alldist = np.abs(np.sum(x*plane_upper[:3], 1) + plane_upper[-1])
                 mind = np.min(alldist)
-                sel = np.abs(alldist - mind) < DIST_THRESH
+                sel = np.abs(alldist - mind) < DIST_THRESH  # 到*上底面*距离在DIST_THRESH以内的点
                 ## Get upper four lines
                 line_sel1, line_sel2, line_sel3, line_sel4 = get_linesel(x[sel], xmin, xmax, ymin, ymax)
                 if np.sum(line_sel1) > NUM_POINT_LINE:
@@ -343,8 +343,8 @@ class ScannetDetectionDataset(Dataset):
                     point_boundary_offset_z[sel_global] = center - x[sel]
                                     
                 ## Get left two lines
-                v1 = corners[3] - corners[2]
-                v2 = corners[2] - corners[0]
+                v1 = corners[3] - corners[2]  # [0, 0, z_max - z_min]
+                v2 = corners[2] - corners[0]  # [0, y_max - y_min, 0]
                 cp = np.cross(v1, v2)
                 d = -np.dot(cp,corners[0])
                 a,b,c = cp
@@ -363,7 +363,7 @@ class ScannetDetectionDataset(Dataset):
                 alldist = np.abs(np.sum(x*plane_left[:3], 1) + plane_left[-1])
                 mind = np.min(alldist)
                 sel = np.abs(alldist - mind) < DIST_THRESH
-                ## Get upper four lines
+                ## Get left two lines(vertical)
                 line_sel1, line_sel2 = get_linesel2(x[sel], ymin, ymax, zmin, zmax, axis=1)
                 if np.sum(line_sel1) > NUM_POINT_LINE:
                     point_line_mask[ind[sel][line_sel1]] = 1.0
@@ -456,8 +456,7 @@ class ScannetDetectionDataset(Dataset):
         class_ind = [np.where(DC.nyu40ids == x)[0][0] for x in obj_meta[:,-1]]   
         # NOTE: set size class as semantic class. Consider use size2class.
         size_classes[0:num_instance] = class_ind
-        size_residuals[0:num_instance, :] = \
-                                            target_bboxes[0:num_instance, 3:6] - DC.mean_size_arr[class_ind,:]
+        size_residuals[0:num_instance, :] = target_bboxes[0:num_instance, 3:6] - DC.mean_size_arr[class_ind,:]
         
         point_votes = np.tile(point_votes, (1, 3)) # make 3 votes identical
         point_sem_label = np.tile(np.expand_dims(point_sem_label, -1), (1, 3)) # make 3 votes identical

@@ -126,8 +126,8 @@ class HDNet(nn.Module):
         end_points = self.backbone_net4(inputs['point_clouds'], end_points, mode='net3')
 
         ### Extract feature here
-        xyz = end_points['fp2_xyz']
-        features1 = end_points['fp2_features']
+        xyz = end_points['fp2_xyz']  # (B, 1024, 3)
+        features1 = end_points['fp2_features']  # (B, 256, 1024)
         features2 = end_points['fp2_features'+'net1']
         features3 = end_points['fp2_features'+'net2']
         features4 = end_points['fp2_features'+'net3']
@@ -140,26 +140,31 @@ class HDNet(nn.Module):
         features_hd_discriptor = F.relu(self.bn_agg1(self.conv_agg1(features_hd_discriptor)))
         features_hd_discriptor = F.relu(self.bn_agg2(self.conv_agg2(features_hd_discriptor)))
 
-        end_points['hd_feature'] = features_hd_discriptor
-        
+        end_points['hd_feature'] = features_hd_discriptor  # (B, 256, 1024)
+
+        # BB face flag (upper & lower face)
         net_flag_z = F.relu(self.bn_flag_z1(self.conv_flag_z1(features_hd_discriptor)))
         net_flag_z = self.conv_flag_z2(net_flag_z)
-        end_points["pred_flag_z"] = net_flag_z
+        end_points["pred_flag_z"] = net_flag_z  # (B, 2, 1024)
 
+        # BB face flag (left & right & front & back face)
         net_flag_xy = F.relu(self.bn_flag_xy1(self.conv_flag_xy1(features_hd_discriptor)))
         net_flag_xy = self.conv_flag_xy2(net_flag_xy)
-        end_points["pred_flag_xy"] = net_flag_xy
+        end_points["pred_flag_xy"] = net_flag_xy  # (B, 2, 1024)
 
+        # BB edge flag
         net_flag_line = F.relu(self.bn_flag_line1(self.conv_flag_line1(features_hd_discriptor)))
         net_flag_line = self.conv_flag_line2(net_flag_line)
-        end_points["pred_flag_line"] = net_flag_line
+        end_points["pred_flag_line"] = net_flag_line  # (B, 2, 1024)
 
+        # BB center voting
         proposal_xyz, proposal_features, center_offset, center_residual = self.vgen(xyz, features_hd_discriptor)
         proposal_features_norm = torch.norm(proposal_features, p=2, dim=1)
         proposal_features = proposal_features.div(proposal_features_norm.unsqueeze(1))
-        end_points['vote_xyz'] = proposal_xyz
-        end_points['vote_features'] = proposal_features
-        
+        end_points['vote_xyz'] = proposal_xyz  # (B, 1024, 3)
+        end_points['vote_features'] = proposal_features  # (B, 256, 1024)
+
+        # BB face center voting
         voted_z, voted_z_feature, z_offset, z_residual = self.vgen_z(xyz, features_hd_discriptor)
         voted_z_feature_norm = torch.norm(voted_z_feature, p=2, dim=1)
         voted_z_feature = voted_z_feature.div(voted_z_feature_norm.unsqueeze(1))
@@ -172,12 +177,14 @@ class HDNet(nn.Module):
         end_points['vote_xy'] = voted_xy
         end_points['vote_xy_feature'] = voted_xy_feature
 
+        # BB edge center voting
         voted_line, voted_line_feature, line_offset, line_residual = self.vgen_line(xyz, features_hd_discriptor)
         voted_line_feature_norm = torch.norm(voted_line_feature, p=2, dim=1)
         voted_line_feature = voted_line_feature.div(voted_line_feature_norm.unsqueeze(1))
         end_points['vote_line'] = voted_line
         end_points['vote_line_feature'] = voted_line_feature
-        
+
+        # (B, N, 3), (B, 128, N)
         center_z, feature_z, end_points = self.pnet_z(voted_z, voted_z_feature, end_points, mode='_z')
         center_xy, feature_xy, end_points = self.pnet_xy(voted_xy, voted_xy_feature, end_points, mode='_xy')
         center_line, feature_line, end_points = self.pnet_line(voted_line, voted_line_feature, end_points, mode='_line')
