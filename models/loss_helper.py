@@ -146,32 +146,39 @@ def compute_proposal_loss(end_points, mode=''):
         end_points['selected_sem'] = gt_sem
         
         ### gt for primitive matching
+        # (B, 6*N, 3), (B, 12*N, 3)
         obj_surface_center, obj_line_center = get_surface_line_points_batch_pytorch(gt_size, gt_heading, obj_center)
 
+        # (B, 2*1024, 3), (B, 1024, 3)
         pred_surface_center = end_points['surface_center_pred']
         pred_line_center = end_points['line_center_pred']
 
+        # (B, 6*N, 3), (B, 12*N, 3)
         pred_obj_surface_center = end_points["surface_center_object"]
         pred_obj_line_center = end_points["line_center_object"]
 
+        # (B, 2*1024), (B, 1024)
         surface_sem = torch.argmax(end_points['surface_sem_pred'], dim=2).float()
         line_sem = torch.argmax(end_points['line_sem_pred'], dim=2).float()
-        
+
+        # GT primitives & predicted primitives (GT primitive到最近的predicted primitive距离)
         dist_surface, surface_ind, _, _ = nn_distance(obj_surface_center, pred_surface_center)
         dist_line, line_ind, _, _ = nn_distance(obj_line_center, pred_line_center)
 
+        # (B, 6*N, 3) 选出的predicted primitive都是距离某个GT primitive最近的点
         surface_sel = torch.gather(pred_surface_center, 1, surface_ind.unsqueeze(-1).repeat(1,1,3))
         line_sel = torch.gather(pred_line_center, 1, line_ind.unsqueeze(-1).repeat(1,1,3))
+        # (B, 6*N)
         surface_sel_sem = torch.gather(surface_sem, 1, surface_ind)
         line_sel_sem = torch.gather(line_sem, 1, line_ind)
 
-        surface_sel_sem_gt = gt_sem.unsqueeze(-1).repeat(1,1,6).view(B,-1).float()
-        line_sel_sem_gt = gt_sem.unsqueeze(-1).repeat(1,1,12).view(B,-1).float()
+        surface_sel_sem_gt = gt_sem.unsqueeze(-1).repeat(1,1,6).view(B,-1).float()  # (B, N*6)
+        line_sel_sem_gt = gt_sem.unsqueeze(-1).repeat(1,1,12).view(B,-1).float()  # (B, N*12)
 
-        end_points["surface_sel"] = obj_surface_center
-        end_points["line_sel"] = obj_line_center
-        end_points["surface_sel_sem"] = surface_sel_sem
-        end_points["line_sel_sem"] = line_sel_sem
+        end_points["surface_sel"] = obj_surface_center  # GT primitives
+        end_points["line_sel"] = obj_line_center  # GT primitives
+        end_points["surface_sel_sem"] = surface_sel_sem  # predicted primitives
+        end_points["line_sel_sem"] = line_sel_sem  # predicted primitives
         
         euclidean_dist_surface = torch.sqrt(dist_surface+1e-6)
         euclidean_dist_line = torch.sqrt(dist_line+1e-6)
@@ -181,7 +188,8 @@ def compute_proposal_loss(end_points, mode=''):
         objectness_mask_line = torch.zeros((B,K*12)).cuda()
         objectness_label_surface_sem = torch.zeros((B,K*6), dtype=torch.long).cuda()
         objectness_label_line_sem = torch.zeros((B,K*12), dtype=torch.long).cuda()
-        
+
+        # proposal primitives & pridicted primitives
         euclidean_dist_obj_surface = torch.sqrt(torch.sum((pred_obj_surface_center - surface_sel)**2, dim=-1)+1e-6)
         euclidean_dist_obj_line = torch.sqrt(torch.sum((pred_obj_line_center - line_sel)**2, dim=-1)+1e-6)
 
@@ -198,6 +206,9 @@ def compute_proposal_loss(end_points, mode=''):
         
         objectness_mask_surface = objectness_mask_surface_obj
         objectness_mask_line = objectness_mask_line_obj
+        # euclidean_dist_obj_surface: proposal primitive 到 predicted primitive 的距离
+        # euclidean_dist_surface: GT primitive 到 predicted primitive 的距离
+        # (B, K*6)
         objectness_label_surface[(euclidean_dist_obj_surface<LABEL_SURFACE_THRESHOLD)*(euclidean_dist_surface<MASK_SURFACE_THRESHOLD)] = 1
         objectness_label_surface_sem[(euclidean_dist_obj_surface<LABEL_SURFACE_THRESHOLD)*(euclidean_dist_surface<MASK_SURFACE_THRESHOLD)*(surface_sel_sem==surface_sel_sem_gt)] = 1
 
@@ -205,7 +216,9 @@ def compute_proposal_loss(end_points, mode=''):
         objectness_label_line_sem[(euclidean_dist_obj_line<LABEL_LINE_THRESHOLD)*(euclidean_dist_line<MASK_LINE_THRESHOLD)*(line_sel_sem==line_sel_sem_gt)] = 1
 
     if mode == 'opt':
+        # (B, 18*K, 2)
         objectness_scores = end_points["match_scores"]#match scores for each geometric primitive
+        # (B, 18*K)
         temp_objectness_label = torch.cat((objectness_label_surface, objectness_label_line), 1)
         temp_objectness_label_sem = torch.cat((objectness_label_surface_sem, objectness_label_line_sem), 1)
         temp_objectness_mask = torch.cat((objectness_mask_surface, objectness_mask_line), 1)
@@ -378,13 +391,17 @@ def compute_matching_potential_loss(end_points, config, mode=''):
     obj_size = pred_size_avg.squeeze(2) + pred_size_residual.squeeze(2)# + size_residual_opt
     
     ### Get the object surface center here
+    # (B, 6*N, 3)
+    # (B, 12*N, 3)
+    # proposal primitives
     pred_obj_surface_center, pred_obj_line_center = get_surface_line_points_batch_pytorch(obj_size, pred_heading, obj_center)
-    
+
+    # (B, 6*N+12*N, 3)
     source_point = torch.cat((pred_obj_surface_center, pred_obj_line_center), 1)
 
-    surface_target = end_points["surface_sel"]
-    line_target = end_points["line_sel"]
-    target_point = torch.cat((surface_target, line_target), 1)
+    surface_target = end_points["surface_sel"]  # 对应GT的surface center point
+    line_target = end_points["line_sel"]  # 对应GT的line center point
+    target_point = torch.cat((surface_target, line_target), 1)  # (B, 6*N+12*N, 3)
 
     objectness_match_label = end_points['objectness_match_label_plusscore'].float()
     objectness_match_label_sem = end_points['objectness_match_label_plusscore_sem'].float()
@@ -479,10 +496,10 @@ def compute_primitivesem_loss(end_points, config, mode=''):
     if mode == '_line':
         seed_gt_votes_mask = torch.gather(end_points['point_line_mask'], 1, seed_inds)
     else:
-        seed_gt_votes_mask = torch.gather(end_points['point_boundary_mask'+mode], 1, seed_inds)
-    seed_inds_expand = seed_inds.view(batch_size,num_seed,1).repeat(1,1,3)
+        seed_gt_votes_mask = torch.gather(end_points['point_boundary_mask'+mode], 1, seed_inds)  # (B, 1024)
+    seed_inds_expand = seed_inds.view(batch_size,num_seed,1).repeat(1,1,3)  # (B, 1024, 3)
     if mode == '_z':
-        seed_inds_expand_sem = seed_inds.view(batch_size,num_seed,1).repeat(1,1,6)
+        seed_inds_expand_sem = seed_inds.view(batch_size,num_seed,1).repeat(1,1,6)  # (B, 1024, 6)
     elif mode == '_xy':
         seed_inds_expand_sem = seed_inds.view(batch_size,num_seed,1).repeat(1,1,5)
     else:
@@ -491,8 +508,8 @@ def compute_primitivesem_loss(end_points, config, mode=''):
         seed_gt_votes = torch.gather(end_points['point_line_offset'], 1, seed_inds_expand)
         seed_gt_sem = torch.gather(end_points['point_line_sem'], 1, seed_inds_expand_sem)
     else:
-        seed_gt_votes = torch.gather(end_points['point_boundary_offset'+mode], 1, seed_inds_expand)
-        seed_gt_sem = torch.gather(end_points['point_boundary_sem'+mode], 1, seed_inds_expand_sem)
+        seed_gt_votes = torch.gather(end_points['point_boundary_offset'+mode], 1, seed_inds_expand)  # (B, 1024, 3)
+        seed_gt_sem = torch.gather(end_points['point_boundary_sem'+mode], 1, seed_inds_expand_sem)  # (B, 1024, 6/5/4)
     seed_gt_votes += end_points['seed_xyz']
 
     end_points['surface_center_gt'+mode] = seed_gt_votes
@@ -604,7 +621,7 @@ def get_loss(inputs, end_points, config):
     flag_loss_line = compute_flag_loss(end_points, mode='_line')*30
     end_points['flag_loss_line'] = flag_loss_line
 
-    ### vote regression -> compute_primitive_center_loss ~ from seed point to primitive center
+    ### vote regression -> compute_primitive_center_loss ~ from seed point to predicted primitive center
     vote_loss_z = compute_primitive_center_loss(end_points, mode='_z')*10
     end_points['vote_loss_z'] = vote_loss_z
 
@@ -614,6 +631,7 @@ def get_loss(inputs, end_points, config):
     vote_loss_line = compute_primitive_center_loss(end_points, mode='_line')*10
     end_points['vote_loss_line'] = vote_loss_line
 
+    # 从predicted primitive center再regress一次，计算center_loss, size_loss, sem_loss
     center_lossz, size_lossz, sem_lossz = compute_primitivesem_loss(end_points, config, mode='_z')
     end_points['center_lossz'] = center_lossz
     end_points['size_lossz'] = size_lossz
@@ -650,7 +668,8 @@ def get_loss(inputs, end_points, config):
     end_points['pos_ratio'] = torch.sum(objectness_label.float().cuda())/float(total_num_proposal)
     end_points['neg_ratio'] = torch.sum(objectness_mask.float())/float(total_num_proposal) - end_points['pos_ratio']
 
-    objectness_loss_opt, objectness_label_opt, objectness_mask_opt, objectness_label_match, objectness_label_match_sem, objectness_mask_match, object_assignment_opt, objectness_loss_cue, objectness_loss_sem = compute_proposal_loss(end_points, mode='opt')
+    objectness_loss_opt, objectness_label_opt, objectness_mask_opt, objectness_label_match, objectness_label_match_sem, objectness_mask_match, object_assignment_opt, objectness_loss_cue, objectness_loss_sem = \
+        compute_proposal_loss(end_points, mode='opt')
     end_points['objectness_loss'+'opt'] = objectness_loss_opt
     end_points['objectness_loss'+'_cue'] = objectness_loss_cue
     end_points['objectness_loss'+'_sem'] = objectness_loss_sem

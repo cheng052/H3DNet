@@ -345,11 +345,11 @@ class ProposalModuleRefine(nn.Module):
 
         match_features = F.relu(self.bn_match1(self.conv_match1(combine_features)))
         match_score = self.conv_match2(match_features)
-        end_points["match_scores"] = match_score.transpose(2,1).contiguous()
+        end_points["match_scores"] = match_score.transpose(2,1).contiguous()  # (B, 18*N, 2)
 
         match_features_sem = F.relu(self.bn_match_sem1(self.conv_match_sem1(combine_features)))
         match_score_sem = self.conv_match_sem2(match_features_sem)
-        end_points["match_scores_sem"] = match_score_sem.transpose(2,1).contiguous()
+        end_points["match_scores_sem"] = match_score_sem.transpose(2,1).contiguous()  # (B, 18*N, 2)
 
         surface_features = F.relu(self.bn_surface1(self.conv_surface1(surface_features)))
         surface_features = F.relu(self.bn_surface2(self.conv_surface2(surface_features)))
