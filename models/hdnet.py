@@ -63,9 +63,9 @@ class HDNet(nn.Module):
 
         # Backbone point feature learning: 4 bb tower
         self.backbone_net1 = Pointnet2Backbone(input_feature_dim=self.input_feature_dim) ### Just xyz + height
-        self.backbone_net2 = Pointnet2Backbone(input_feature_dim=self.input_feature_dim) ### Just xyz + height
-        self.backbone_net3 = Pointnet2Backbone(input_feature_dim=self.input_feature_dim) ### Just xyz + height
-        self.backbone_net4 = Pointnet2Backbone(input_feature_dim=self.input_feature_dim) ### Just xyz + height
+        # self.backbone_net2 = Pointnet2Backbone(input_feature_dim=self.input_feature_dim) ### Just xyz + height
+        # self.backbone_net3 = Pointnet2Backbone(input_feature_dim=self.input_feature_dim) ### Just xyz + height
+        # self.backbone_net4 = Pointnet2Backbone(input_feature_dim=self.input_feature_dim) ### Just xyz + height
 
         ### Feature concatenation
         self.conv_agg1 = torch.nn.Conv1d(256*4,256*2,1) 
@@ -121,24 +121,25 @@ class HDNet(nn.Module):
         batch_size = inputs['point_clouds'].shape[0]
 
         end_points = self.backbone_net1(inputs['point_clouds'], end_points)
-        end_points = self.backbone_net2(inputs['point_clouds'], end_points, mode='net1')
-        end_points = self.backbone_net3(inputs['point_clouds'], end_points, mode='net2')
-        end_points = self.backbone_net4(inputs['point_clouds'], end_points, mode='net3')
+        # end_points = self.backbone_net2(inputs['point_clouds'], end_points, mode='net1')
+        # end_points = self.backbone_net3(inputs['point_clouds'], end_points, mode='net2')
+        # end_points = self.backbone_net4(inputs['point_clouds'], end_points, mode='net3')
 
         ### Extract feature here
         xyz = end_points['fp2_xyz']  # (B, 1024, 3)
         features1 = end_points['fp2_features']  # (B, 256, 1024)
-        features2 = end_points['fp2_features'+'net1']
-        features3 = end_points['fp2_features'+'net2']
-        features4 = end_points['fp2_features'+'net3']
+        # features2 = end_points['fp2_features'+'net1']
+        # features3 = end_points['fp2_features'+'net2']
+        # features4 = end_points['fp2_features'+'net3']
         end_points['seed_inds'] = end_points['fp2_inds']
         end_points['seed_xyz'] = xyz
         end_points['seed_features'] = features1
         
         ### Combine the feature here
-        features_hd_discriptor = torch.cat((features1, features2, features3, features4), dim=1)
-        features_hd_discriptor = F.relu(self.bn_agg1(self.conv_agg1(features_hd_discriptor)))
-        features_hd_discriptor = F.relu(self.bn_agg2(self.conv_agg2(features_hd_discriptor)))
+        # features_hd_discriptor = torch.cat((features1, features2, features3, features4), dim=1)
+        # features_hd_discriptor = F.relu(self.bn_agg1(self.conv_agg1(features_hd_discriptor)))
+        # features_hd_discriptor = F.relu(self.bn_agg2(self.conv_agg2(features_hd_discriptor)))
+        features_hd_discriptor = features1
 
         end_points['hd_feature'] = features_hd_discriptor  # (B, 256, 1024)
 
