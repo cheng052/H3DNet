@@ -40,6 +40,7 @@ from tf_visualizer import Visualizer as TfVisualizer
 from ap_helper import APCalculator, parse_predictions, parse_groundtruths
 from pc_util import compute_iou
 from dump_helper import dump_results
+import time
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--data_path', default='/scratch/cluster/yanght/Dataset/sunrgbd/', help='path to dataset')
@@ -286,7 +287,11 @@ def evaluate_one_epoch():
         class2type_map=DATASET_CONFIG.class2type)
 
     net.eval() # set model to eval mode (for bn and dp)
-    
+
+    time_file = 'time_file_%s.txt' % FLAGS.dataset
+    time_file = os.path.join(ROOT_DIR, time_file)
+    f = open(time_file, 'w')
+    all_time = 0
     for batch_idx, batch_data_label in enumerate(TEST_DATALOADER):
         if batch_idx % 10 == 0:
             print('Eval batch: %d'%(batch_idx))
@@ -295,9 +300,15 @@ def evaluate_one_epoch():
             batch_data_label[key] = batch_data_label[key].to(device)
         inputs = {'point_clouds': batch_data_label['point_clouds']}
 
+        tic = time.time()
         with torch.no_grad():
             end_points = net(inputs, end_points)
-                
+        toc = time.time()
+        t = toc - tic
+        all_time += t
+        f.write('batch_idx:%d, infer time:%f\n' % (batch_idx, t))
+        print('Inference time: %f'%(t))
+
         # Compute loss
         for key in batch_data_label:
             end_points[key] = batch_data_label[key]
@@ -320,6 +331,11 @@ def evaluate_one_epoch():
         if FLAGS.dump_results:
             dump_results(end_points, DUMP_DIR+'/result/', DATASET_CONFIG, TEST_DATASET)
 
+    mean_time = all_time/float(batch_idx+1)
+    f.write('Batch number:%d\n' % (batch_idx+1))
+    f.write('mean infer time: %f\n' % (mean_time))
+    f.close()
+    print('Mean inference time: %f'%(mean_time))
     # Log statistics
     TEST_VISUALIZER.log_scalars({key:stat_dict[key]/float(batch_idx+1) for key in stat_dict},
         (EPOCH_CNT+1)*len(TRAIN_DATALOADER)*BATCH_SIZE)
