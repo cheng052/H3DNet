@@ -289,7 +289,7 @@ def evaluate_one_epoch():
     net.eval() # set model to eval mode (for bn and dp)
 
     time_file = 'time_file_%s.txt' % FLAGS.dataset
-    time_file = os.path.join(ROOT_DIR, time_file)
+    time_file = os.path.join(DUMP_DIR, time_file)
     f = open(time_file, 'w')
     all_time = 0
     for batch_idx, batch_data_label in enumerate(TEST_DATALOADER):
