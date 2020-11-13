@@ -152,7 +152,7 @@ def dump_results(end_points, dump_dir, config, dataset, mode='opt'):
         obb_gt_list = []
 
         for j in range(num_proposal):
-            obb = config.param2obb2(pred_center[i,j,0:3], pred_heading_class[i,j], pred_heading_residual[i,j],
+            obb = config.param2obb(pred_center[i,j,0:3], pred_heading_class[i,j], pred_heading_residual[i,j],
                             pred_size_class[i,j], pred_size_residual[i,j])
             obb_pred_list.append(np.hstack([obb, pred_sem_cls[i, j] + 1])) # ATTENTION: need to + 1
             box = params2bbox(obb[:3], obb[3], obb[4], obb[5], obb[6])
@@ -161,7 +161,7 @@ def dump_results(end_points, dump_dir, config, dataset, mode='opt'):
         
         for j in range(gt_center.shape[1]):
             if gt_mask[i, j] == 0: continue
-            obb = config.param2obb2(gt_center[i,j,0:3], gt_heading_class[i,j], gt_heading_residual[i,j],
+            obb = config.param2obb(gt_center[i,j,0:3], gt_heading_class[i,j], gt_heading_residual[i,j],
                             gt_size_class[i,j], gt_size_residual[i,j])
             obb_gt_list.append(np.hstack([obb, sem_cls_label[i, j] + 1])) # ATTENTION: need to + 1
             box = params2bbox(obb[:3], obb[3], obb[4], obb[5], obb[6])
