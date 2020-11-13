@@ -74,7 +74,7 @@ def dump_results(end_points, dump_dir, config, dataset, mode='opt'):
     seed_xyz_line = end_points['seed_xyz'].detach().cpu().numpy() # (B,num_seed,3)
     
     gt_center = end_points['center_label'].cpu().numpy() # (B,MAX_NUM_OBJ,3)
-    gt_num = end_points['num_instance'].cpu().numpy() # (B,MAX_NUM_OBJ,3)
+    # gt_num = end_points['num_instance'].cpu().numpy() # (B,MAX_NUM_OBJ,3)
     scan_idxes = end_points['scan_idx'].detach().cpu().numpy()
 
     pred_center = end_points['vote_xyz'].detach().cpu().numpy()
