@@ -38,7 +38,10 @@ for name in all_scan_names:
     # if scene_name != '000001':
     #     continue
     obbs = np.load(os.path.join(FLAGS.path,name))
-    print(obbs[:, -1])
+    try:
+        print(obbs[:, -1])
+    except:
+        continue
     boxes = obbs[:, :-1]
     sem_cls = obbs[:, -1] - 1
     print('(%d, %d)' % (obbs.shape[0], obbs.shape[1]))
