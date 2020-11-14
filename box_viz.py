@@ -33,8 +33,11 @@ dump_dir = os.path.join(ROOT_DIR, dump_dir)
 os.mkdir(dump_dir)
 
 for name in all_scan_names:
+    if name != 'scene0488_00':
+        continue
     scene_name = name[3:15]
     obbs = np.load(os.path.join(FLAGS.path,name))
+    print(obbs[:, -1])
     boxes = obbs[:, :-1]
     sem_cls = obbs[:, -1] - 1
     print('(%d, %d)' % (obbs.shape[0], obbs.shape[1]))
