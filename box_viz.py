@@ -11,6 +11,7 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument('--path', default=None)
 parser.add_argument('--dataset')
+parser.add_argument('--dump_dir')
 FLAGS = parser.parse_args()
 
 all_scan_names = list(set([os.path.basename(x)
@@ -24,7 +25,10 @@ elif FLAGS.dataset == 'sunrgbd':
 else:
     raise NotImplementedError
 
-dump_dir = 'dump_'+FLAGS.dataset
+if FLAGS.dump_dir is None:
+    dump_dir = 'dump_'+FLAGS.dataset
+else:
+    dump_dir = FLAGS.dump_dir
 dump_dir = os.path.join(ROOT_DIR, dump_dir)
 
 for name in all_scan_names:
