@@ -87,7 +87,7 @@ def export_one_scan(scan_name):
     os.system("mv tmp.xyz tmp.xyzrgb")
     pcd  = o3d.io.read_point_cloud('tmp.xyzrgb')
 
-    gt_bbox = np.load(os.path.join(GT_PATH, scan_name+'_all_angle_40cls.npy'))
+    gt_bbox = np.load(os.path.join(GT_PATH, scan_name+'_all_noangle_40cls.npy'))
     gt_bbox = select_bbox(np.unique(gt_bbox,axis=0))
     semantic_labels = gt_bbox[:,-1]
     pred_proposals = np.load(os.path.join(PRED_PATH, 'opt'+scan_name+'_nms.npy'))
