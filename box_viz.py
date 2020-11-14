@@ -30,7 +30,8 @@ if FLAGS.dump_dir is None:
 else:
     dump_dir = FLAGS.dump_dir
 dump_dir = os.path.join(ROOT_DIR, dump_dir)
-os.mkdir(dump_dir)
+if not os.path.exists(dump_dir):
+    os.mkdir(dump_dir)
 
 for name in all_scan_names:
     if name != 'optscene0488_00':
