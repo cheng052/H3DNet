@@ -40,4 +40,4 @@ for name in all_scan_names:
     for l in np.unique(sem_cls):
         mask = (sem_cls == l)
         if np.sum(mask)>0:
-            pc_util.write_oriented_bbox(boxes[mask, :], os.path.join(case_dump_dir, '%d_pred_confident_nms_bbox.ply'%(l)))
+            pc_util.write_oriented_bbox(boxes[mask, :], os.path.join(case_dump_dir, '%d_gt_bbox.ply'%(l)))
