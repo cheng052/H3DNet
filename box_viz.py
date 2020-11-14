@@ -30,6 +30,7 @@ if FLAGS.dump_dir is None:
 else:
     dump_dir = FLAGS.dump_dir
 dump_dir = os.path.join(ROOT_DIR, dump_dir)
+os.mkdir(dump_dir)
 
 for name in all_scan_names:
     scene_name = name[3:15]
