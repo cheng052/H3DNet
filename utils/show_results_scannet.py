@@ -24,7 +24,7 @@ DONOTCARE_CLASS_IDS = np.array([])
 OBJ_CLASS_IDS = np.array([3,4,5,6,7,8,9,10,11,12,14,16,24,28,33,34,36,39])
 MAX_NUM_POINT = 40000
 GT_PATH = '/home/cbw/dataset/scannet_h3dnet/scannet_train_detection_data' # path of data dumped with scripts in scannet folder
-PRED_PATH = 'log_scannet_1_bs1/result' # path of predictions
+PRED_PATH = 'log_scannet_2_bs1_right/result' # path of predictions
 mode = sys.argv[1] # gt or pred
 color_mapping = {3: [255,140,0], 4:[30,144,255], 5:[50,205,50], 6:[255,215,0], 7:[255,69,0], 8:[138,43,226],9:[0,255,255],10:[210,105,30],11:[255,0,255], 12:[255,255,0], 14:[255,20,147], 16:[165,42,42], 24:[100,149,237], 28:[0,128,0], 33:[255,127,80],34:[221,160,221], 36:[95,158,160], 39:[119,136,153]}
 
@@ -116,6 +116,8 @@ def export_one_scan(scan_name):
 
 def batch_export():
     for i, scan_name in enumerate(sorted(VAL_SCAN_NAMES)):
+        if scan_name != 'scene0488_00':
+            continue
         #if not scan_name.endswith('_00'):
         #    continue
         print('-'*20+'begin')
