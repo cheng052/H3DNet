@@ -34,7 +34,7 @@ if not os.path.exists(dump_dir):
     os.mkdir(dump_dir)
 
 for name in all_scan_names:
-    scene_name = name[3:9]
+    scene_name = name[3:15]
     # if scene_name != '000001':
     #     continue
     obbs = np.load(os.path.join(FLAGS.path,name))
