@@ -48,8 +48,8 @@ for name in all_scan_names:
     case_dump_dir = os.path.join(dump_dir, scene_name)
     if not os.path.exists(case_dump_dir):
         os.mkdir(case_dump_dir)
-    for l in np.unique(sem_cls):
-        mask = (sem_cls == l)
-        if np.sum(mask)>0:
-            pc_util.write_oriented_bbox(boxes[mask, :], os.path.join(case_dump_dir, '%d_pred_confident_nms_bbox.ply'%(l)))
+    # for l in np.unique(sem_cls):
+    #     mask = (sem_cls == l)
+    #     if np.sum(mask)>0:
+    pc_util.write_oriented_bbox(boxes, os.path.join(case_dump_dir, 'pred_confident_nms_bbox.ply'))
 
